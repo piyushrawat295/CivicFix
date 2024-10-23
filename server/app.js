@@ -1,9 +1,15 @@
-import React from 'react'
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 5000;
 
-function app() {
-  return (
-    <div>app</div>
-  )
-}
+app.use(express.json()); // Middleware to parse JSON
 
-export default app
+// Sample route
+app.get('/', (req, res) => {
+  res.send('Hello, MERN!');
+});
+
+// Start the server
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
