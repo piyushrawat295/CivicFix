@@ -1,21 +1,20 @@
-import React from 'react'
-import About from './Components/About Section/About'
-import Hero from './Components/Hero Section/Hero'
-import Navbar from './Components/Navbar/Navbar'
-import Partners from './Components/Partners/Partners'
-import FAQs from './Components/FAQs/FAQs'
+import React from 'react';
+import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
+import Home from './Components/LandingPage/Home';
+import Navbar from './Components/Navbar/Navbar';
+import IssueCreation from './Components/CreateIssue/creation'; 
+
 
 const App = () => {
   return (
-    <div>
+    <Router>
       <Navbar />
-      <Hero/>
-      <About/>
-      <Partners/>
-      {/* <Contact/> */}
-      <FAQs/>
-    </div>
-  )
-}
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/submit-issue" element={<IssueCreation />} />
+      </Routes>
+    </Router>
+  );
+};
 
-export default App
+export default App;
