@@ -1,183 +1,206 @@
-import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
-import React, { useRef, useState } from 'react';
+import axios from 'axios';
+import L from 'leaflet';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+import 'leaflet/dist/leaflet.css';
+import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { FaMapMarkerAlt } from 'react-icons/fa';
+import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
+import Modal from 'react-modal';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
+// Set default marker icon
+const DefaultIcon = L.icon({
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+});
+L.Marker.prototype.options.icon = DefaultIcon;
+
+// Map and Modal styles
 const mapContainerStyle = {
-  height: '200px',
+  height: '300px',
+  width: '100%',
+};
+
+const modalMapContainerStyle = {
+  height: '500px',
   width: '100%',
 };
 
 const center = {
-  lat: 28.6139, // Default location (New Delhi)
+  lat: 28.6139,
   lng: 77.2090,
 };
 
-export default function SubmitIssue() {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [location, setLocation] = useState('');
+const LocationMarker = ({ position }) => {
+  return position === null ? null : (
+    <Marker position={position}>
+      <Popup>
+        <div style={{ textAlign: 'center' }}>
+          <FaMapMarkerAlt style={{ fontSize: '24px', color: 'red' }} />
+          <p>Selected Location</p>
+        </div>
+      </Popup>
+    </Marker>
+  );
+};
+
+// Function to get address from coordinates
+const getAddressFromCoordinates = async (lat, lng) => {
+  const response = await axios.get(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+  return response.data.display_name; 
+};
+
+const SubmitIssue = () => {
   const [coordinates, setCoordinates] = useState(center);
-  const [image, setImage] = useState(null);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+  const [address, setAddress] = useState('');
+  const { register, handleSubmit, formState: { errors }, watch, reset } = useForm();
 
-  const mapRef = useRef(null);
-
-  const onLoad = (map) => {
-    mapRef.current = map;
-  };
-
-  const handleMapClick = (event) => {
-    const { latLng } = event;
-    const lat = latLng.lat();
-    const lng = latLng.lng();
-    setCoordinates({ lat, lng });
-    setLocation(`Lat: ${lat}, Lng: ${lng}`);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    // Validation
-    if (!title || !description || !image) {
-      setError('Please fill out all required fields.');
+  const onSubmit = async (data) => {
+    const file = watch('image');
+    if (!file || file.length === 0) {
+      toast.error('Please upload an image, video, or audio file.');
       return;
     }
 
-    setError('');
+    console.log('Form Data:', data);
+    toast.success('Issue submitted successfully!');
 
-    // Here you can handle your image upload and form submission
-    // For example, using Fetch or Axios to send the data to your backend
-    // const formData = new FormData();
-    // formData.append('title', title);
-    // formData.append('description', description);
-    // formData.append('location', location);
-    // formData.append('coordinates', JSON.stringify(coordinates));
-    // formData.append('image', image);
+    // Reset the form and states after submission
+    reset();
+    setCoordinates(center); // Reset coordinates
+    setAddress(''); // Clear address
+    closeMapModal(); // Ensure the modal is closed
+  };
 
-    // const response = await fetch('/api/issues', {
-    //   method: 'POST',
-    //   body: formData,
-    // });
+  const openMapModal = () => {
+    setIsMapModalOpen(true);
+  };
 
-    // if (response.ok) {
-    //   setSuccess(true);
-    //   setTitle('');
-    //   setDescription('');
-    //   setLocation('');
-    //   setImage(null);
-    // } else {
-    //   setError('Submission failed. Please try again.');
-    // }
+  const closeMapModal = () => {
+    setIsMapModalOpen(false);
+  };
+
+  const handleSearch = async (e) => {
+    const query = e.target.value;
+    if (query) {
+      const response = await axios.get(`https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`);
+      if (response.data.length > 0) {
+        const { lat, lon, display_name } = response.data[0];
+        const newCoordinates = { lat: parseFloat(lat), lng: parseFloat(lon) };
+        setCoordinates(newCoordinates);
+        setAddress(display_name);
+        toast.success('Location found and set!');
+      } else {
+        toast.error('Location not found.');
+      }
+    }
+  };
+
+  const handleMapClick = async (event) => {
+    const lat = event.latlng.lat;
+    const lng = event.latlng.lng;
+
+    const newCoordinates = { lat, lng };
+    setCoordinates(newCoordinates); 
+
+    const fetchedAddress = await getAddressFromCoordinates(lat, lng);
+    setAddress(fetchedAddress);
+    toast.success('Location selected on the map!');
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h2 className="text-lg font-bold text-center mb-6">Submit an Issue</h2>
-        {success && (
-          <div className="bg-green-100 text-green-800 border border-green-400 p-2 mb-4 rounded">
-            Issue submitted successfully!
-          </div>
-        )}
-        {error && (
-          <div className="bg-red-100 text-red-800 border border-red-400 p-2 mb-4 rounded">
-            {error}
-          </div>
-        )}
-        <form onSubmit={handleSubmit}>
-          {/* Issue Title */}
+    <div className="flex items-center justify-center min-h-screen mt-[-24]">
+      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-2xl">
+        <h1 className="text-4xl font-manrope text-center font-bold text-gray-900 leading-[3.25rem] mb-14">Submit an Issue</h1>
+        <form onSubmit={handleSubmit(onSubmit)}>
           <div className="mb-4">
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-              Issue Title <span className="text-red-500">*</span>
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Issue Title</label>
             <input
               type="text"
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              {...register('title', { 
+                required: 'Title is required',
+                minLength: { value: 10, message: 'Title must be at least 10 characters' }
+              })}
+              className={`block w-full p-2 border rounded ${errors.title ? 'border-red-500' : 'border-gray-300'}`}
               placeholder="Enter a brief title for your issue"
             />
+            {errors.title && <p className="text-red-500 text-xs">{errors.title.message}</p>}
           </div>
 
-          {/* Description */}
           <div className="mb-4">
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-              Description <span className="text-red-500">*</span>
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
             <textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              placeholder="Please describe the issue in detail (e.g., what happened, when, and any other relevant information)"
-              rows="4"
+              {...register('description', { 
+                required: 'Description is required', 
+                minLength: { value: 30, message: 'Description must be at least 30 characters' }
+              })}
+              className={`block w-full p-2 border rounded ${errors.description ? 'border-red-500' : 'border-gray-300'}`}
+              placeholder="Please describe the issue in detail"
+              rows={4}
             />
+            {errors.description && <p className="text-red-500 text-xs">{errors.description.message}</p>}
           </div>
 
-          {/* Location */}
           <div className="mb-4">
-            <label htmlFor="location" className="block text-sm font-medium text-gray-700">
-              Location <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              id="location"
-              value={location}
-              readOnly
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              placeholder="Click on the map to select your location"
-            />
+            <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+            <div>
+              <input
+                type="text"
+                onChange={handleSearch}
+                placeholder="Search for a location..."
+                className="block w-full p-2 border rounded mb-2"
+              />
+              {!isMapModalOpen && (
+                <MapContainer center={coordinates} zoom={13} style={mapContainerStyle} whenCreated={map => map.locate()}>
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution="&copy; OpenStreetMap contributors"
+                  />
+                  <LocationMarker position={coordinates} />
+                </MapContainer>
+              )}
+              <button 
+                type="button" 
+                onClick={openMapModal} 
+                className="mt-2 p-2 bg-gray-600 text-white rounded"
+              >
+                Select Location on Map
+              </button>
+            </div>
           </div>
 
-          {/* Google Maps Component */}
-          <LoadScript googleMapsApiKey="YOUR_GOOGLE_MAPS_API_KEY">
-            <GoogleMap
-              mapContainerStyle={mapContainerStyle}
-              center={center}
-              zoom={10}
-              onLoad={onLoad}
-              onClick={handleMapClick}
-            >
-              <Marker position={coordinates} />
-            </GoogleMap>
-          </LoadScript>
-
-          {/* Image Upload */}
           <div className="mb-4">
-            <label htmlFor="image" className="block text-sm font-medium text-gray-700">
-              Image Upload <span className="text-gray-500">(optional but recommended)</span>
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Upload Image, Video or Audio</label>
             <input
               type="file"
-              id="image"
-              accept="image/*"
-              onChange={(e) => setImage(e.target.files[0])}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              required
+              {...register('image', { required: 'Please upload a file' })}
+              className={`block w-full p-2 border rounded ${errors.image ? 'border-red-500' : 'border-gray-300'}`}
             />
+            {errors.image && <p className="text-red-500 text-xs">{errors.image.message}</p>}
           </div>
 
-          {/* Submit Button */}
-          <div className="flex justify-between">
-            <button
-              type="button"
-              onClick={() => window.history.back()}
-              className="inline-flex justify-center rounded-md border border-gray-300 bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
-            >
-              Back
-            </button>
-            <button
-              type="submit"
-              className="inline-flex justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2"
-            >
-              Submit Issue
-            </button>
-          </div>
+          <button type="submit" className="w-full p-3 bg-gray-600 text-white rounded hover:bg-gray-800">Submit Issue</button>
         </form>
+
+        <Modal isOpen={isMapModalOpen} onRequestClose={closeMapModal} style={{ content: { top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '90%', height: '80%' } }}>
+          <h2 className="text-lg font-bold mb-4">Select Locations</h2>
+          <MapContainer center={coordinates} zoom={13} style={modalMapContainerStyle} onClick={handleMapClick}>
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution="&copy; OpenStreetMap contributors"
+            />
+            <LocationMarker position={coordinates} />
+          </MapContainer>
+          <button onClick={closeMapModal} className="mt-4 p-2 bg-red-500 text-white rounded">Close Map</button>
+        </Modal>
       </div>
+      <ToastContainer />
     </div>
   );
-}
+};
+
+export default SubmitIssue;
