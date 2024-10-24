@@ -45,12 +45,12 @@ export default function Hero() {
             Easily report issues in your city, track their progress, and hold officials accountable for faster resolutions.</p>
             <div className="mt-10 flex items-center justify-center gap-x-6">
               <a
-                href="/submit-issue"
+                href="/userdashboard/submit-issues"
                 className="rounded-md bg-indigo-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
               >
                 Submit an Issue
               </a>
-              <a href="/dashboard" className="text-sm font-semibold leading-6 text-gray-900">
+              <a href="/userdashboard/active-issues" className="text-sm font-semibold leading-6 text-gray-900">
                 Track Issue <span aria-hidden="true">→</span>
               </a>
             </div>
